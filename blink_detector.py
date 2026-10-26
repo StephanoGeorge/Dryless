@@ -1,5 +1,6 @@
 """Core blink detection logic for Dryless."""
 
+import math
 import os
 import shutil
 import tempfile
@@ -37,14 +38,17 @@ def _resolve_model() -> str | None:
 _FACE_MODEL = _resolve_model()
 
 
+def _dist(p1, p2):
+    return math.hypot(p1.x - p2.x, p1.y - p2.y)
+
+
 def _eye_openness(landmarks, eye_idx):
     points = [landmarks[i] for i in eye_idx]
-    top_y = (points[1].y + points[2].y) / 2
-    bottom_y = (points[4].y + points[5].y) / 2
-    eye_width = abs(points[3].x - points[0].x)
+    eye_width = _dist(points[0], points[3])
     if eye_width < 1e-6:
         return 0.0
-    return (bottom_y - top_y) / eye_width
+    lid_gap = (_dist(points[1], points[5]) + _dist(points[2], points[4])) / 2.0
+    return lid_gap / eye_width
 
 
 class BlinkDetector:
@@ -91,7 +95,7 @@ class BlinkDetector:
             self.face_detected = True
             landmarks = result.face_landmarks[0]
 
-            self.current_openness = max(
+            self.current_openness = min(
                 _eye_openness(landmarks, LEFT_EYE_IDX),
                 _eye_openness(landmarks, RIGHT_EYE_IDX),
             )

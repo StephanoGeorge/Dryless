@@ -12,7 +12,7 @@ public struct EyeMeasurement: Equatable {
     }
 
     public var openness: Double {
-        max(leftOpenness, rightOpenness)
+        min(leftOpenness, rightOpenness)
     }
 }
 

@@ -55,6 +55,7 @@ func checkBlinkDetectionCountsClosedToOpenTransitions() throws {
         at: Date(timeIntervalSinceReferenceDate: 110)
     )
     try expect(reopened.eyeOpen && reopened.blinked && reopened.totalBlinks == 1, "A valid closed-to-open transition should count once")
+    try expect(EyeMeasurement(faceDetected: true, leftOpenness: 0.38, rightOpenness: 0.10).openness == 0.10, "Openness must take the minimum to stay resilient to head yaw")
 
     let missing = engine.process(
         EyeMeasurement(faceDetected: false, leftOpenness: 0, rightOpenness: 0),
