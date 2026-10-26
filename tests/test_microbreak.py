@@ -43,5 +43,21 @@ class MicrobreakContract(unittest.TestCase):
         self.assertEqual(c.presence, 0)
         self.assertFalse(c.previous_face)
 
+    def test_disabled_microbreak_in_worker(self):
+        from PyQt6.QtCore import QCoreApplication
+        import config
+        from ui import DetectorWorker
+        app = QCoreApplication.instance() or QCoreApplication([])
+        original = config.MICROBREAK_ENABLED
+        try:
+            config.MICROBREAK_ENABLED = False
+            worker = DetectorWorker()
+            level, micro = worker._update_reminders(True, False, 1.0, 1200)
+            self.assertFalse(micro['active'])
+            self.assertFalse(micro['started'])
+            self.assertEqual(micro['presence_seconds'], 0.0)
+        finally:
+            config.MICROBREAK_ENABLED = original
+
 if __name__ == '__main__':
     unittest.main()

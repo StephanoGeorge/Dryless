@@ -151,6 +151,7 @@ class SettingsScreen(QWidget):
     previewStage = pyqtSignal(int, int)
     previewFinished = pyqtSignal(int)
     soundToggled = pyqtSignal(bool)
+    microbreakToggled = pyqtSignal(bool)
     languageChanged = pyqtSignal()
 
     def __init__(self, parent=None):
@@ -234,6 +235,10 @@ class SettingsScreen(QWidget):
         self._interval = self._int_input(config.ALERT_INTERVAL_SEC, 3, 30)
         self._setting_row(reminder_layout, "后续提醒间隔", "Repeat interval",
                           "仍未眨眼时，逐档加强提示", "Increase the level if no blink is detected", self._interval)
+        self._divider(reminder_layout)
+        self._microbreak = _Switch(getattr(config, "MICROBREAK_ENABLED", True))
+        self._setting_row(reminder_layout, "微休息提醒", "Microbreak reminders",
+                          "连续在场 20 分钟后提醒起身活动", "Remind to take a break after 20 minutes of presence", self._microbreak)
         self._divider(reminder_layout)
         self._sound = _Switch(getattr(config, "SOUND_ENABLED", True))
         self._setting_row(reminder_layout, "声音提醒", "Reminder sounds",
@@ -402,6 +407,7 @@ class SettingsScreen(QWidget):
         # Connect only after restoring values: opening settings never rewrites them.
         self._wait.valueChanged.connect(self._on_wait)
         self._interval.valueChanged.connect(self._on_interval)
+        self._microbreak.toggled.connect(self._on_microbreak)
         self._sound.toggled.connect(self._on_sound)
         self._sensitivity.valueChanged.connect(self._on_sensitivity)
         self._frames.valueChanged.connect(self._on_frames)
@@ -587,6 +593,17 @@ class SettingsScreen(QWidget):
         config.BLINK_CONSECUTIVE_FRAMES = int(value)
         save_config()
 
+    def _on_microbreak(self, enabled):
+        config.MICROBREAK_ENABLED = bool(enabled)
+        save_config()
+        self.microbreakToggled.emit(bool(enabled))
+
+    def setMicrobreakEnabled(self, enabled):
+        """Synchronize external microbreak changes without emitting or saving again."""
+        previous = self._microbreak.blockSignals(True)
+        self._microbreak.setChecked(bool(enabled))
+        self._microbreak.blockSignals(previous)
+
     def _on_sound(self, enabled):
         config.SOUND_ENABLED = bool(enabled)
         save_config()
@@ -743,6 +760,7 @@ class SettingsScreen(QWidget):
         for control, zh, en in (
             (self._wait, "首次提醒等待秒数", "Seconds before the first reminder"),
             (self._interval, "后续提醒间隔秒数", "Seconds between reminder levels"),
+            (self._microbreak, "微休息提醒", "Microbreak reminders"),
             (self._sound, "声音提醒", "Reminder sounds"),
             (self._sensitivity, "闭眼比例阈值", "Eye-closure ratio threshold"),
             (self._frames, "检测帧间隔", "Detection frame interval"),

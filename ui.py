@@ -131,15 +131,24 @@ class DetectorWorker(QThread):
         self._blink_resume_at = None
 
     def _update_reminders(self, face, blinked, no_blink, now):
-        micro = self._microbreak.update(face, now, self._paused)
-        if micro['started'] or micro['ended']:
-            self._blink_resume_at = now
-            self._last_alert_round_seen = -1
-            if self._alert:
-                self._alert.stop()
-                self._alert.reset()
-                if micro['started']:
-                    self._alert.play_microbreak()
+        if not getattr(config, 'MICROBREAK_ENABLED', True):
+            if self._microbreak.prompt_until is not None or self._microbreak.presence > 0:
+                self._microbreak.presence = 0.0
+                self._microbreak.prompt_until = None
+                if self._alert:
+                    self._alert.stop()
+            micro = dict(active=False, started=False, ended=False,
+                         presence_seconds=0.0, remaining_seconds=0.0)
+        else:
+            micro = self._microbreak.update(face, now, self._paused)
+            if micro['started'] or micro['ended']:
+                self._blink_resume_at = now
+                self._last_alert_round_seen = -1
+                if self._alert:
+                    self._alert.stop()
+                    self._alert.reset()
+                    if micro['started']:
+                        self._alert.play_microbreak()
         if blinked:
             self._blink_resume_at = None
             self._last_alert_round_seen = -1
@@ -395,6 +404,7 @@ class DrylessApp(QMainWindow):
             self.titlebar.setPageHeader(page.page_header)
         self.titlebar.setPageHeader(self.monitor.page_header)
         self.settings.soundToggled.connect(self._on_sound_from_settings)
+        self.settings.microbreakToggled.connect(self._on_microbreak_from_settings)
         self.settings.languageChanged.connect(self._on_language_changed)
         self.titlebar.languageChanged.connect(self._on_language_changed)
         self.monitor.statusChanged.connect(self.sidebar.setStatus)
@@ -614,6 +624,9 @@ class DrylessApp(QMainWindow):
 
     def _on_sound_from_settings(self, v):
         self._on_sound(v)
+
+    def _on_microbreak_from_settings(self, enabled):
+        self.monitor._render_state()
 
     def setPaused(self, paused):
         self._paused = bool(paused)

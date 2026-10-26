@@ -46,7 +46,7 @@ class MonitorMetrics(QWidget):
 
     @property
     def break_progress(self):
-        if not self.running or self.paused:
+        if not self.running or self.paused or not getattr(config, 'MICROBREAK_ENABLED', True):
             return 0.
         return min(1., max(0., self.state.get('microbreak_presence', 0.))/PRESENCE_SECONDS)
 
@@ -121,7 +121,9 @@ class MonitorMetrics(QWidget):
         remaining = max(0, math.ceil((1-self.break_progress)*PRESENCE_SECONDS))
         minutes, secs = divmod(remaining, 60)
         caption = _tr(f'{minutes:02}:{secs:02} 后提醒', f'In {minutes:02}:{secs:02}')
-        if micro:
+        if not getattr(config, 'MICROBREAK_ENABLED', True):
+            caption = _tr('提醒已关闭', 'Reminders off')
+        elif micro:
             caption = _tr('休息提醒中', 'Break reminder active')
         elif self.paused:
             caption = _tr('提醒已暂停', 'Alerts paused')
