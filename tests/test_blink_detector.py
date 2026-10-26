@@ -142,6 +142,31 @@ class BlinkDetectorTests(unittest.TestCase):
         finally:
             config.BLINK_CONSECUTIVE_FRAMES = original_consec
 
+    def test_no_face_frame_interval_config(self):
+        self.assertTrue(hasattr(config, "PROCESS_EVERY_N_FRAMES_NO_FACE"))
+        self.assertEqual(config.PROCESS_EVERY_N_FRAMES_NO_FACE, 30, f"expected 30, got {config.PROCESS_EVERY_N_FRAMES_NO_FACE}")
+        self.assertIn("PROCESS_EVERY_N_FRAMES_NO_FACE", config._PERSIST_KEYS)
+
+    def test_dynamic_interval_logic(self):
+        # Verify interval switching based on face detection flag
+        face_detected = True
+        interval = max(
+            1,
+            config.PROCESS_EVERY_N_FRAMES
+            if face_detected
+            else getattr(config, "PROCESS_EVERY_N_FRAMES_NO_FACE", 30),
+        )
+        self.assertEqual(interval, config.PROCESS_EVERY_N_FRAMES, f"expected {config.PROCESS_EVERY_N_FRAMES}, got {interval}")
+
+        face_detected = False
+        interval = max(
+            1,
+            config.PROCESS_EVERY_N_FRAMES
+            if face_detected
+            else getattr(config, "PROCESS_EVERY_N_FRAMES_NO_FACE", 30),
+        )
+        self.assertEqual(interval, 30, f"expected 30, got {interval}")
+
 
 if __name__ == "__main__":
     unittest.main()

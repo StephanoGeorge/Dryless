@@ -235,6 +235,7 @@ class DetectorWorker(QThread):
             windows = BlinkWindows(time.monotonic())
             frame_count = 0
             read_failures = 0
+            last_process_frame = 0
 
             while self._running and not self._stop_requested.is_set() and not self.isInterruptionRequested():
                 ok, frame = cap.read()
@@ -250,7 +251,14 @@ class DetectorWorker(QThread):
                 if frame_count == 1:
                     self.captureReady.emit()
 
-                if frame_count % max(1, config.PROCESS_EVERY_N_FRAMES) == 0:
+                interval = max(
+                    1,
+                    config.PROCESS_EVERY_N_FRAMES
+                    if self._detector.face_detected
+                    else getattr(config, "PROCESS_EVERY_N_FRAMES_NO_FACE", 30),
+                )
+                if frame_count == 1 or frame_count - last_process_frame >= interval:
+                    last_process_frame = frame_count
                     frame, blinked, no_blink_sec, _ = self._detector.process_frame(frame)
                     if self._stop_requested.is_set():
                         break
