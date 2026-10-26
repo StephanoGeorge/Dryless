@@ -86,9 +86,61 @@ class BlinkDetectorTests(unittest.TestCase):
         # Reopen eyes
         mock_landmarker.detect.return_value = open_result
         _, blinked, _, debug = detector.process_frame(dummy_frame)
-        self.assertTrue(blinked)
-        self.assertTrue(debug["is_open"])
-        self.assertEqual(detector.blink_count, 1)
+        self.assertTrue(blinked, f"expected blink, got {blinked}")
+        self.assertTrue(debug["is_open"], f"expected is_open True, got {debug['is_open']}")
+        self.assertEqual(detector.blink_count, 1, f"expected blink count 1, got {detector.blink_count}")
+
+    @patch("blink_detector.mp_vision.FaceLandmarker.create_from_options")
+    def test_consecutive_closed_frames_threshold(self, mock_create):
+        mock_landmarker = MagicMock()
+        mock_create.return_value = mock_landmarker
+        detector = BlinkDetector()
+
+        def make_face_landmarks(left_gap, right_gap):
+            points = [_MockPoint(0, 0) for _ in range(500)]
+            left_eye = _build_eye_landmarks(left_gap)
+            right_eye = _build_eye_landmarks(right_gap)
+            for idx, p in zip(LEFT_EYE_IDX, left_eye):
+                points[idx] = p
+            for idx, p in zip(RIGHT_EYE_IDX, right_eye):
+                points[idx] = p
+            return [points]
+
+        open_result = MagicMock()
+        open_result.face_landmarks = make_face_landmarks(left_gap=1.0, right_gap=1.0)
+        blink_result = MagicMock()
+        blink_result.face_landmarks = make_face_landmarks(left_gap=0.1, right_gap=0.1)
+
+        dummy_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        mock_landmarker.detect.return_value = open_result
+        for _ in range(15):
+            detector.process_frame(dummy_frame)
+
+        original_consec = config.BLINK_CONSECUTIVE_FRAMES
+        try:
+            config.BLINK_CONSECUTIVE_FRAMES = 2
+
+            # 1 closed frame then reopen: should NOT trigger blink because threshold is 2
+            mock_landmarker.detect.return_value = blink_result
+            _, blinked, _, _ = detector.process_frame(dummy_frame)
+            self.assertFalse(blinked, f"expected no blink during closure, got {blinked}")
+
+            mock_landmarker.detect.return_value = open_result
+            _, blinked, _, _ = detector.process_frame(dummy_frame)
+            self.assertFalse(blinked, f"expected no blink for 1 closed frame when threshold is 2, got {blinked}")
+            self.assertEqual(detector.blink_count, 0, f"expected 0 blinks, got {detector.blink_count}")
+
+            # 2 consecutive closed frames then reopen: SHOULD trigger blink
+            mock_landmarker.detect.return_value = blink_result
+            detector.process_frame(dummy_frame)
+            detector.process_frame(dummy_frame)
+
+            mock_landmarker.detect.return_value = open_result
+            _, blinked, _, _ = detector.process_frame(dummy_frame)
+            self.assertTrue(blinked, f"expected blink for 2 closed frames, got {blinked}")
+            self.assertEqual(detector.blink_count, 1, f"expected 1 blink, got {detector.blink_count}")
+        finally:
+            config.BLINK_CONSECUTIVE_FRAMES = original_consec
 
 
 if __name__ == "__main__":

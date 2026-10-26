@@ -81,6 +81,7 @@ class BlinkDetector:
         self._BUF_SIZE = 30
         self._baseline = None
         self._face_left_time: float | None = None
+        self._consecutive_closed_frames = 0
 
     def process_frame(self, frame):
         """Process one frame and return (frame, blinked, no_blink_sec, debug)."""
@@ -112,10 +113,15 @@ class BlinkDetector:
                 self._ratio = None
                 self._is_open = True
 
-            if not self._was_open and self._is_open:
-                self.blink_count += 1
-                self.last_blink_time = time.time()
-                blinked = True
+            min_closed = max(1, int(getattr(config, "BLINK_CONSECUTIVE_FRAMES", 1)))
+            if not self._is_open:
+                self._consecutive_closed_frames += 1
+            else:
+                if self._consecutive_closed_frames >= min_closed:
+                    self.blink_count += 1
+                    self.last_blink_time = time.time()
+                    blinked = True
+                self._consecutive_closed_frames = 0
 
             self._was_open = self._is_open
 
@@ -133,6 +139,7 @@ class BlinkDetector:
         else:
             self.face_detected = False
             self._was_open = True
+            self._consecutive_closed_frames = 0
             if self._face_left_time is None:
                 self._face_left_time = time.time()
 
@@ -156,6 +163,7 @@ class BlinkDetector:
 
     def reset(self):
         self.last_blink_time = time.time()
+        self._consecutive_closed_frames = 0
 
     def release(self):
         self.landmarker.close()

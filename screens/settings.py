@@ -392,6 +392,10 @@ class SettingsScreen(QWidget):
         self._frames = self._int_input(config.PROCESS_EVERY_N_FRAMES, 1, 5)
         self._setting_row(advanced_layout, "检测帧间隔", "Frame interval",
                           "每隔多少帧执行一次检测", "Run detection once every N frames", self._frames)
+        self._divider(advanced_layout)
+        self._closed_frames = self._int_input(getattr(config, "BLINK_CONSECUTIVE_FRAMES", 1), 1, 10)
+        self._setting_row(advanced_layout, "闭眼持续检测帧数", "Consecutive closed frames",
+                          "判断眨眼需要持续闭眼多少个检测帧", "Number of closed frames required to detect a blink", self._closed_frames)
         advanced_layout.addStretch(1)
         self._tab_stack.addWidget(self._advanced_body)
 
@@ -401,6 +405,7 @@ class SettingsScreen(QWidget):
         self._sound.toggled.connect(self._on_sound)
         self._sensitivity.valueChanged.connect(self._on_sensitivity)
         self._frames.valueChanged.connect(self._on_frames)
+        self._closed_frames.valueChanged.connect(self._on_closed_frames)
         self._advanced_button.toggled.connect(self._toggle_advanced)
         self._show_tab(0)
         self.retranslate()
@@ -578,6 +583,10 @@ class SettingsScreen(QWidget):
         config.PROCESS_EVERY_N_FRAMES = int(value)
         save_config()
 
+    def _on_closed_frames(self, value):
+        config.BLINK_CONSECUTIVE_FRAMES = int(value)
+        save_config()
+
     def _on_sound(self, enabled):
         config.SOUND_ENABLED = bool(enabled)
         save_config()
@@ -730,12 +739,14 @@ class SettingsScreen(QWidget):
         self._wait.setSuffix(_tr(" 秒", " s"))
         self._interval.setSuffix(_tr(" 秒", " s"))
         self._frames.setSuffix(_tr(" 帧", " frames"))
+        self._closed_frames.setSuffix(_tr(" 帧", " frames"))
         for control, zh, en in (
             (self._wait, "首次提醒等待秒数", "Seconds before the first reminder"),
             (self._interval, "后续提醒间隔秒数", "Seconds between reminder levels"),
             (self._sound, "声音提醒", "Reminder sounds"),
             (self._sensitivity, "闭眼比例阈值", "Eye-closure ratio threshold"),
             (self._frames, "检测帧间隔", "Detection frame interval"),
+            (self._closed_frames, "闭眼持续检测帧数", "Consecutive closed frames"),
         ):
             control.setAccessibleName(_tr(zh, en))
         for control, decrement, increment in self._steppers:
